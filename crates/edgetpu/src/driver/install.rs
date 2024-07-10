@@ -1,13 +1,25 @@
+use crate::driver::util::{
+    check_root_privileges_unix, check_root_privileges_windows, determine_paths, determine_platform,
+    get_script_dir,
+};
+use log::{error, info, warn};
+use std::env;
+use std::fs;
+use std::path::PathBuf;
+use std::process::{self, Command};
+use whoami;
+
 pub fn run_install(max_freq: bool) -> Result<(), Box<dyn std::error::Error>> {
-    check_root_privileges()?;
     let script_dir = get_script_dir()?;
     let (libedgetpu_dir, rules_file) = determine_paths(&script_dir)?;
     let (cpu, host_gnu_type) = determine_platform()?;
     let freq_dir = get_frequency_dir(max_freq);
 
     if env::consts::OS == "macos" {
+        check_root_privileges_unix()?;
         install_macos_dependencies(&libedgetpu_dir, &freq_dir, &cpu)?;
     } else if env::consts::OS == "linux" {
+        check_root_privileges_unix()?;
         install_linux_dependencies(
             &libedgetpu_dir,
             &rules_file,
@@ -16,6 +28,7 @@ pub fn run_install(max_freq: bool) -> Result<(), Box<dyn std::error::Error>> {
             &host_gnu_type,
         )?;
     } else if env::consts::OS == "windows" {
+        check_root_privileges_windows()?;
         install_windows_dependencies(&libedgetpu_dir, &freq_dir)?;
     } else {
         error!("Unsupported operating system.");
@@ -136,40 +149,49 @@ fn install_macos_dependencies(
         .arg(
             &libedgetpu_lib_dir
                 .join("libedgetpu.1.dylib")
-                .to_string_lossy(),
+                .to_string_lossy()
+                .to_string(),
         )
         .arg(
             &libedgetpu_lib_dir
                 .join("libedgetpu.1.0.dylib")
-                .to_string_lossy(),
+                .to_string_lossy()
+                .to_string(),
         )
         .status()?;
 
+    let otool_output = Command::new("otool")
+        .arg("-L")
+        .arg(
+            &libedgetpu_lib_dir
+                .join("libedgetpu.1.0.dylib")
+                .to_string_lossy()
+                .to_string(),
+        )
+        .output()?
+        .stdout;
+
+    let otool_output_str = String::from_utf8_lossy(&otool_output);
+    let dependency = otool_output_str
+        .lines()
+        .find(|line| line.contains("libusb"))
+        .and_then(|line| line.split_whitespace().next())
+        .ok_or("libusb dependency not found")?;
+
     Command::new("install_name_tool")
         .arg("-change")
-        .arg(
-            Command::new("otool")
-                .arg("-L")
-                .arg(
-                    &libedgetpu_lib_dir
-                        .join("libedgetpu.1.0.dylib")
-                        .to_string_lossy(),
-                )
-                .output()?
-                .stdout
-                .split(|&b| b == b' ')
-                .next()
-                .unwrap(),
-        )
+        .arg(dependency)
         .arg(
             &darwin_install_lib_dir
                 .join("libusb-1.0.0.dylib")
-                .to_string_lossy(),
+                .to_string_lossy()
+                .to_string(),
         )
         .arg(
             &libedgetpu_lib_dir
                 .join("libedgetpu.1.0.dylib")
-                .to_string_lossy(),
+                .to_string_lossy()
+                .to_string(),
         )
         .status()?;
 

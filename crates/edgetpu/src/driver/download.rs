@@ -1,7 +1,6 @@
-use curl::easy::Easy;
-use std::env;
+use curl::easy::{Easy, WriteError};
 use std::fs::File;
-use std::io::{self, Write};
+use std::io::Write;
 use std::path::PathBuf;
 use zip::ZipArchive;
 
@@ -9,10 +8,12 @@ pub fn download_file(url: &str, dest: &PathBuf) -> Result<(), Box<dyn std::error
     let mut easy = Easy::new();
     easy.url(url)?;
     let mut file = File::create(dest)?;
+
     easy.write_function(move |data| {
-        file.write_all(data)?;
+        file.write_all(data).map_err(|_| WriteError::Pause)?;
         Ok(data.len())
     })?;
+
     easy.perform()?;
     Ok(())
 }
@@ -27,7 +28,7 @@ pub fn extract_zip(
     Ok(())
 }
 
-pub fn download_libedgetpu(out_path: &PathBuf) -> Result<PathBuf, Box<dyn std::error::Error>> {
+pub fn download_edgetpu_runtime(out_path: &PathBuf) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let url = "https://github.com/google-coral/libedgetpu/releases/download/release-grouper/edgetpu_runtime_20221024.zip";
     let zip_path = out_path.join("edgetpu_runtime.zip");
     let edgetpu_path = out_path.join("edgetpu_runtime");

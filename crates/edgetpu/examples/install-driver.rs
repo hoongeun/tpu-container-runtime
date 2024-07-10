@@ -1,4 +1,8 @@
-use crate::driver::download;
-use crate::driver::install;
+use crate::driver::download::download_edgetpu_driver;
+use crate::driver::install::run_install;
 
-pub fn main() {}
+pub fn main() -> Result<(), Box<dyn std::error::Error>> {
+    download_edgetpu_runtime()?;
+    run_install()?;
+    Ok(())
+}

@@ -1,14 +1,26 @@
+use crate::driver::util::{
+    check_root_privileges_unix, check_root_privileges_windows, determine_linux_platform,
+    determine_paths, get_script_dir,
+};
+use log::{error, info, warn};
+use std::env;
+use std::fs;
+use std::path::PathBuf;
+use std::process::{self, Command};
+
 pub fn run_uninstall() -> Result<(), Box<dyn std::error::Error>> {
-    check_root_privileges()?;
     let script_dir = get_script_dir()?;
     let (libedgetpu_dir, _) = determine_paths(&script_dir)?;
 
     if env::consts::OS == "macos" {
+        check_root_privileges_unix()?;
         uninstall_macos_dependencies()?;
     } else if env::consts::OS == "linux" {
+        check_root_privileges_unix()?;
         let (cpu_dir, host_gnu_type) = determine_linux_platform()?;
         uninstall_linux_dependencies(&cpu_dir, &host_gnu_type)?;
     } else if env::consts::OS == "windows" {
+        check_root_privileges_windows()?;
         uninstall_windows_dependencies(&libedgetpu_dir)?;
     } else {
         error!("Unsupported operating system.");
