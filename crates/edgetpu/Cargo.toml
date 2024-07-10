@@ -1,0 +1,21 @@
+[package]
+name = "edgetpu"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cpp = "0.5.9"
+libc = "0.2.155"
+curl = "0.4.46"
+zip = "2.1.3"
+
+[build-dependencies]
+bindgen = { version = "0.69.4" }
+clang-sys = { version = "1.8.1" }
+cpp_build = "0.5"
+
+[dev-dependencies]
+tflite = "0.9.8"
+bytes = "1.6.0"
+byteorder = "1.5.0"
+image = "0.25.1"
