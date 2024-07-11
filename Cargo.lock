@@ -768,6 +768,7 @@ dependencies = [
  "libc",
  "log",
  "tflite",
+ "thiserror",
  "whoami",
  "zip",
 ]

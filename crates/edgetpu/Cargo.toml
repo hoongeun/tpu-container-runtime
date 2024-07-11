@@ -10,6 +10,8 @@ curl = "0.4.46"
 zip = "2.1.3"
 log = "0.4.22"
 whoami = "1.5.1"
+thiserror = "1.0.61"
+tflite = "0.9.8"
 
 [build-dependencies]
 bindgen = { version = "0.69.4" }
