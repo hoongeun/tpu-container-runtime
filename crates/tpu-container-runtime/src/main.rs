@@ -3,6 +3,7 @@ use youki::observability;
 use youki::rootpath;
 use youki::workload;
 use anyhow::{Result};
+use std::env;
 use clap::{crate_version, CommandFactory, Parser};
 use liboci_cli::{CommonCmd, GlobalOpts, StandardCmd};
 
