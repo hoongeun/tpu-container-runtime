@@ -1,8 +1,10 @@
-use crate::driver::download::download_edgetpu_driver;
+use crate::driver::download::download_edgetpu_runtime;
 use crate::driver::install::run_install;
+use std::path::PathBuf;
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
-    download_edgetpu_runtime()?;
-    run_install()?;
+    let download_path = PathBuf::from("downloads");
+    let runtime_path = download_edgetpu_runtime(download_path)?;
+    run_install(runtime_path, false)?;
     Ok(())
 }

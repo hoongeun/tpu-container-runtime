@@ -8,9 +8,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::{self, Command};
 
-pub fn run_uninstall() -> Result<(), Box<dyn std::error::Error>> {
-    let script_dir = get_script_dir()?;
-    let (libedgetpu_dir, _) = determine_paths(&script_dir)?;
+pub fn run_uninstall(runtime_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    let (libedgetpu_dir, _) = determine_paths(runtime_path)?;
 
     if env::consts::OS == "macos" {
         check_root_privileges_unix()?;

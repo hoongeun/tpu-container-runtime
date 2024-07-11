@@ -9,9 +9,11 @@ use std::path::PathBuf;
 use std::process::{self, Command};
 use whoami;
 
-pub fn run_install(max_freq: bool) -> Result<(), Box<dyn std::error::Error>> {
-    let script_dir = get_script_dir()?;
-    let (libedgetpu_dir, rules_file) = determine_paths(&script_dir)?;
+pub fn run_install(
+    runtime_path: PathBuf,
+    max_freq: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let (libedgetpu_dir, rules_file) = determine_paths(runtime_path)?;
     let (cpu, host_gnu_type) = determine_platform()?;
     let freq_dir = get_frequency_dir(max_freq);
 
