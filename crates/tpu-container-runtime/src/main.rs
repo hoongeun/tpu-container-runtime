@@ -1,9 +1,12 @@
-use youki::commands;
-use youki::observability;
-use youki::rootpath;
-use youki::workload;
-use anyhow::{Result};
-use std::env;
+//! # Youki
+//! Container Runtime written in Rust, inspired by [railcar](https://github.com/oracle/railcar)
+//! This crate provides a container runtime which can be used by a high-level container runtime to run containers.
+mod commands;
+mod observability;
+mod rootpath;
+mod workload;
+
+use anyhow::{Context, Result};
 use clap::{crate_version, CommandFactory, Parser};
 use liboci_cli::{CommonCmd, GlobalOpts, StandardCmd};
 
@@ -81,9 +84,7 @@ fn main() -> Result<()> {
     //
     // Ref: https://github.com/opencontainers/runc/commit/0a8e4117e7f715d5fbeef398405813ce8e88558b
     // Ref: https://github.com/lxc/lxc/commit/6400238d08cdf1ca20d49bafb85f4e224348bf9d
-    if env::consts::OS == "linux" {
-        pentacle::ensure_sealed().context("failed to seal /proc/self/exe")?;
-    }
+    pentacle::ensure_sealed().context("failed to seal /proc/self/exe")?;
 
     let opts = Opts::parse();
     let mut app = Opts::command();
