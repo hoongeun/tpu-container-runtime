@@ -1,0 +1,17 @@
+[package]
+name = "edgetpu-driver"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[dependencies]
+# cc = "1.1.2"
+libc = "0.2.155"
+# libc = { version = "0.2.155", features = ["std"] }
+
+[build-dependencies]
+bindgen = "0.69.4"
+vcpkg = "0.2.15"
+
+[features]
+max-freq = []
