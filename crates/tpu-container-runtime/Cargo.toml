@@ -16,10 +16,11 @@ wasm-wasmtime = ["wasmtime", "wasi-common"]
 
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
-libcgroups = { version = "0.3.3" }
-libcontainer = { version = "0.3.3" }
+libcgroups = { path = "../libcgroups", version = "0.3.3" }
+libcontainer = { path = "../libcontainer", version = "0.3.3" }
 liboci-cli = { version = "0.3.3" }
-nix = { version = "0.27.1", features = ["feature", "fs", "signal", "user"] }
+# nix = { version = "0.27.1", features = ["feature", "fs", "signal", "user"] }
+nix = "0.28.0"
 once_cell = "1.19.0"
 pentacle = "1.0.0"
 procfs = "0.16.0"
@@ -40,9 +41,6 @@ oci-spec = "=0.6.4"
 anyhow = "1.0.86"
 clap = "4.5.9"
 sys = "0.0.1"
-
-[patch.crates-io]
-nix = { version = "0.27.1" }
 
 [build-dependencies]
 anyhow = "1.0.86"

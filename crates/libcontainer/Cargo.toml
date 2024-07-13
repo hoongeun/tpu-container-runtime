@@ -38,12 +38,14 @@ nix = { version = "0.28.0", features = [
     "dir",
     "term",
     "hostname",
+    "user",
+    "signal",
 ] }
 oci-spec = { version = "~0.6.4", features = ["runtime"] }
 once_cell = "1.19.0"
 procfs = "0.16.0"
 prctl = "1.0.0"
-libcgroups = { version = "0.3.3" }
+libcgroups = { path = "../libcgroups", version = "0.3.3" }
 libseccomp = { version = "0.3.0", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
