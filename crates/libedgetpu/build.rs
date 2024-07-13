@@ -4,12 +4,13 @@ use std::process::Command;
 use vcpkg::find_package;
 
 fn main() {
-    println!("cargo:rerun-if-changed=src/api/wrapper.h");
-    println!("cargo:rerun-if-changed=src/api/executable/executable.fbs");
+    println!("cargo:rerun-if-changed=src/headers/wrapper.h");
+    println!("cargo:rerun-if-changed=src/headers/executable/executable.fbs");
 
     // Set the LLVM/Clang environment variables
-    env::set_var("CC", "clang-14");
-    env::set_var("CXX", "clang++-14");
+    env::set_var("CC", "clang-17");
+    env::set_var("CXX", "clang++-17");
+    // env::set_var("CXXFLAGS", "-stdlib=libc++");
 
     // Find packages using vcpkg
     let abseil = find_package("abseil").expect("Failed to find Abseil with vcpkg");
@@ -22,32 +23,41 @@ fn main() {
     include_paths.extend(flatbuffers.include_paths.iter());
     include_paths.extend(pthread.include_paths.iter());
 
-    // Collect library paths from vcpkg packages
-    let mut library_paths = Vec::new();
-    library_paths.extend(abseil.link_paths.iter());
-    library_paths.extend(flatbuffers.link_paths.iter());
-    library_paths.extend(pthread.link_paths.iter());
+    Command::new("flatc")
+        .args(&["--cpp", "driver_options.fbs"])
+        .current_dir("src/headers/api")
+        .status()
+        .expect("Failed to generate FlatBuffers headers");
 
     // Generate FlatBuffers header
     Command::new("flatc")
-        .args(&["--cpp", "executable.fbs"])
-        .current_dir("src/api/executable")
+        .args(&["--cpp", "executable.fbs", "--gen-object-api", "--force-empty", "--gen-mutable"])
+        .current_dir("src/headers/executable")
         .status()
         .expect("Failed to generate FlatBuffers headers");
 
     // Generate bindings using Clang
     let bindings = bindgen::Builder::default()
-        .header("src/api/wrapper.h")
+        .header("src/headers/wrapper.h")
         .clang_arg("-x")
         .clang_arg("c++")
-        .clang_arg("-std=c++14")  // Ensure C++14 is used
+        .clang_arg("-std=c++17")
+        .clang_arg("-stdlib=libc++")
         .clang_args(include_paths.iter().map(|p| format!("-I{}", p.display())))
-        .clang_arg("-Isrc/api") // Include path for the api directory
-        .clang_arg("-Isrc/api/port") // Include path for the port directory
-        .clang_arg("-nostdinc++") // Do not use standard GCC include paths
-        .clang_arg("-I/usr/lib/llvm-14/include/c++/v1") // Use Clang's libc++
-        .clang_arg("--sysroot=/usr") // Specify sysroot
-        .clang_arg("-D_GNU_SOURCE") // Define _GNU_SOURCE for nanosleep and other GNU extensions
+        .clang_arg("-Isrc/headers")
+        // .clang_arg("-I/usr/include/c++/11")
+        // .clang_arg("-I/usr/include/x86_64-linux-gnu/c++/11")
+        // .clang_arg("-I/usr/lib/llvm-14/include/c++/v1")
+        // .clang_arg("-I/usr/local/include")
+        // .clang_arg("-I/usr/lib/llvm-14/lib/clang/14.0.0/include")
+        // .clang_arg("-I/usr/include")
+        // .clang_arg("-I/usr/include/x86_64-linux-gnu")
+        // .clang_arg("-I/usr/lib/gcc/x86_64-linux-gnu/11/include")
+        // .clang_arg("-D__STDC_WANT_LIB_EXT2__=1")
+        // .clang_arg("-D__STDC_LIMIT_MACROS")
+        // .clang_arg("-D__STDC_CONSTANT_MACROS")
+        // .clang_arg("-D_GNU_SOURCE")
+        
         .generate()
         .expect("Unable to generate bindings");
 
@@ -63,17 +73,19 @@ fn main() {
     } else {
         "src/lib/throttled/k8"
     };
-
     println!("cargo:rustc-link-search=native={}", lib_dir);
-    println!("cargo:rustc-link-lib=dylib=yourlibname");
 
     // Specify library paths and link libraries from vcpkg
-    for lib_path in library_paths {
+    for lib_path in pthread.link_paths.iter().chain(abseil.link_paths.iter()).chain(flatbuffers.link_paths.iter()) {
         println!("cargo:rustc-link-search=native={}", lib_path.display());
     }
     
+    // Link against required libraries
+    println!("cargo:rustc-link-lib=c++");
     println!("cargo:rustc-link-lib=dylib=absl_base");
     println!("cargo:rustc-link-lib=dylib=absl_synchronization");
     println!("cargo:rustc-link-lib=dylib=flatbuffers");
-    println!("cargo:rustc-link-lib=dylib=pthread"); // Use vcpkg pthread
+    println!("cargo:rustc-link-lib=dylib=pthread");
+    println!("cargo:rustc-link-lib=dylib=yourlibname");
 }
+
