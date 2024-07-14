@@ -1,37 +1,20 @@
-use crate::driver::util::{
-    check_root_privileges_unix, check_root_privileges_windows, determine_linux_platform,
-    determine_paths, get_script_dir,
-};
-use log::{error, info, warn};
-use std::env;
+use crate::dep::util::{check_privileges, install_path_of};
+use log::info;
 use std::fs;
 use std::path::PathBuf;
-use std::process::{self, Command};
+use std::process::Command;
 
-pub fn run_uninstall(runtime_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-    let (libedgetpu_dir, _) = determine_paths(runtime_path)?;
-
-    if env::consts::OS == "macos" {
-        check_root_privileges_unix()?;
-        uninstall_macos_dependencies()?;
-    } else if env::consts::OS == "linux" {
-        check_root_privileges_unix()?;
-        let (cpu_dir, host_gnu_type) = determine_linux_platform()?;
-        uninstall_linux_dependencies(&cpu_dir, &host_gnu_type)?;
-    } else if env::consts::OS == "windows" {
-        check_root_privileges_windows()?;
-        uninstall_windows_dependencies(&libedgetpu_dir)?;
-    } else {
-        error!("Unsupported operating system.");
-        return Err("Unsupported platform".into());
+pub fn run_uninstall() -> Result<(), Box<dyn std::error::Error>> {
+    if !check_privileges() {
+        return Err("Root privileges are required to uninstall the Edge TPU driver.".into());
     }
 
-    Ok(())
+    uninstall_dependencies()
 }
 
-pub fn uninstall_windows_dependencies(
-    libedgetpu_dir: &PathBuf,
-) -> Result<(), Box<dyn std::error::Error>> {
+#[cfg(target_os = "windows")]
+pub fn uninstall_dependencies() -> Result<(), Box<dyn std::error::Error>> {
+    let libedgetpu_dir = install_path_of();
     let root_dir = if libedgetpu_dir.exists() {
         libedgetpu_dir.clone()
     } else {
@@ -39,8 +22,8 @@ pub fn uninstall_windows_dependencies(
     };
 
     info!("Deleting edgetpu and libusb from System32");
-    fs::remove_file("C:\\Windows\\System32\\edgetpu.dll")?;
-    fs::remove_file("C:\\Windows\\System32\\libusb-1.0.dll")?;
+    fs::remove_file(libedgetpu_dir.join("edgetpu.dll"))?;
+    fs::remove_file(libedgetpu_dir.join("libusb-1.0.dll"))?;
 
     info!("Uninstalling WinUSB drivers");
     let output = Command::new("pnputil")
@@ -77,8 +60,9 @@ pub fn uninstall_windows_dependencies(
     Ok(())
 }
 
-pub fn uninstall_macos_dependencies() -> Result<(), Box<dyn std::error::Error>> {
-    let libedgetpu_lib_dir = PathBuf::from("/usr/local/lib");
+#[cfg(target_os = "macos")]
+pub fn uninstall_dependencies() -> Result<(), Box<dyn std::error::Error>> {
+    let libedgetpu_lib_dir = install_path_of();
 
     if libedgetpu_lib_dir.join("libedgetpu.1.0.dylib").exists() {
         info!("Uninstalling Edge TPU runtime library...");
@@ -89,43 +73,38 @@ pub fn uninstall_macos_dependencies() -> Result<(), Box<dyn std::error::Error>> 
     if libedgetpu_lib_dir.join("libedgetpu.1.dylib").exists() {
         info!("Uninstalling Edge TPU runtime library symlink...");
         fs::remove_file(libedgetpu_lib_dir.join("libedgetpu.1.dylib"))?;
-        info!("Done");
     }
+
+    info!("Uninstall complete!");
 
     Ok(())
 }
 
-fn uninstall_linux_dependencies(
-    cpu_dir: &str,
-    host_gnu_type: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    if Command::new("udevadm").output().is_ok() {
-        let udev_rule_path = PathBuf::from("/etc/udev/rules.d/99-edgetpu-accelerator.rules");
-        if udev_rule_path.exists() {
-            info!(
-                "Uninstalling device rule file [{}]...",
-                udev_rule_path.display()
-            );
-            fs::remove_file(&udev_rule_path)?;
-            Command::new("udevadm")
-                .arg("control")
-                .arg("--reload-rules")
-                .status()?;
-            Command::new("udevadm").arg("trigger").status()?;
-            info!("Done.");
-        }
+#[cfg(target_os = "linux")]
+fn uninstall_dependencies() -> Result<(), Box<dyn std::error::Error>> {
+    if !Command::new("udevadm").output().is_ok() {
+        return Err("udevadm not found.".into());
     }
 
-    let libedgetpu_dst = PathBuf::from(format!("/usr/lib/{}/libedgetpu.so.1.0", host_gnu_type));
+    let rules_file = PathBuf::from("/etc/udev/rules.d/99-edgetpu-accelerator.rules");
+    if rules_file.exists() {
+        info!("Registering edgetpu device driver...");
+        fs::remove_file(&rules_file)?;
+        Command::new("udevadm")
+            .arg("control")
+            .arg("--reload-rules")
+            .status()?;
+        Command::new("udevadm").arg("trigger").status()?;
+    }
+
+    let libedgetpu_dst = install_path_of().join("libedgetpu.so.1.0");
     if libedgetpu_dst.exists() {
-        info!(
-            "Uninstalling Edge TPU runtime library [{}]...",
-            libedgetpu_dst.display()
-        );
+        info!("Uninstalling Edge TPU runtime library ...");
         fs::remove_file(&libedgetpu_dst)?;
         Command::new("ldconfig").status()?;
-        info!("Done.");
     }
+
+    info!("Uninstall complete!");
 
     Ok(())
 }
