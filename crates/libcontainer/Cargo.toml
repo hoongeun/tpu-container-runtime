@@ -41,7 +41,7 @@ nix = { version = "0.28.0", features = [
     "user",
     "signal",
 ] }
-oci-spec = { version = "~0.6.4", features = ["runtime"] }
+oci-spec = { version = "0.6.6", features = ["runtime"] }
 once_cell = "1.19.0"
 procfs = "0.16.0"
 prctl = "1.0.0"
