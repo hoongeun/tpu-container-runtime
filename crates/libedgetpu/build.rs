@@ -1,23 +1,34 @@
 use std::env;
 use std::path::PathBuf;
 use std::process::Command;
+use std::collections::HashSet;
 use vcpkg::find_package;
+
+#[derive(Debug)]
+struct IgnoreMacros(HashSet<String>);
+
+impl bindgen::callbacks::ParseCallbacks for IgnoreMacros {
+    fn will_parse_macro(&self, name: &str) -> bindgen::callbacks::MacroParsingBehavior {
+        if self.0.contains(name) {
+            bindgen::callbacks::MacroParsingBehavior::Ignore
+        } else {
+            bindgen::callbacks::MacroParsingBehavior::Default
+        }
+    }
+}
 
 fn main() {
     println!("cargo:rerun-if-changed=src/headers/wrapper.h");
+    println!("cargo:rerun-if-changed=src/headers/api/driver_options.fbs");
     println!("cargo:rerun-if-changed=src/headers/executable/executable.fbs");
 
-    // Set the LLVM/Clang environment variables
-    env::set_var("CC", "clang-17");
-    env::set_var("CXX", "clang++-17");
-    // env::set_var("CXXFLAGS", "-stdlib=libc++");
+    env::set_var("CC", "clang");
+    env::set_var("CXX", "clang++");
 
-    // Find packages using vcpkg
     let abseil = find_package("abseil").expect("Failed to find Abseil with vcpkg");
     let flatbuffers = find_package("flatbuffers").expect("Failed to find FlatBuffers with vcpkg");
     let pthread = find_package("pthread").expect("Failed to find pthread with vcpkg");
 
-    // Collect include paths from vcpkg packages
     let mut include_paths = Vec::new();
     include_paths.extend(abseil.include_paths.iter());
     include_paths.extend(flatbuffers.include_paths.iter());
@@ -29,35 +40,50 @@ fn main() {
         .status()
         .expect("Failed to generate FlatBuffers headers");
 
-    // Generate FlatBuffers header
     Command::new("flatc")
-        .args(&["--cpp", "executable.fbs", "--gen-object-api", "--force-empty", "--gen-mutable"])
+        .args(&[
+            "--cpp",
+            "executable.fbs",
+            "--gen-object-api",
+            "--force-empty",
+            "--gen-mutable",
+        ])
         .current_dir("src/headers/executable")
         .status()
         .expect("Failed to generate FlatBuffers headers");
 
-    // Generate bindings using Clang
+    let ignored_macros = IgnoreMacros(
+            vec![
+                "FP_INFINITE".into(),
+                "FP_NAN".into(),
+                "FP_NORMAL".into(),
+                "FP_SUBNORMAL".into(),
+                "FP_ZERO".into(),
+                "FP_INT_UPWARD".into(),
+                "FP_INT_DOWNWARD".into(),
+                "FP_INT_TONEAREST".into(),
+                "FP_INT_TOWARDZERO".into(),
+                "FP_INT_TONEARESTFROMZERO".into(),
+            ]
+            .into_iter()
+            .collect(),
+        );
+
     let bindings = bindgen::Builder::default()
         .header("src/headers/wrapper.h")
+        .parse_callbacks(Box::new(ignored_macros))
         .clang_arg("-x")
         .clang_arg("c++")
         .clang_arg("-std=c++17")
         .clang_arg("-stdlib=libc++")
         .clang_args(include_paths.iter().map(|p| format!("-I{}", p.display())))
         .clang_arg("-Isrc/headers")
-        // .clang_arg("-I/usr/include/c++/11")
-        // .clang_arg("-I/usr/include/x86_64-linux-gnu/c++/11")
-        // .clang_arg("-I/usr/lib/llvm-14/include/c++/v1")
-        // .clang_arg("-I/usr/local/include")
-        // .clang_arg("-I/usr/lib/llvm-14/lib/clang/14.0.0/include")
-        // .clang_arg("-I/usr/include")
-        // .clang_arg("-I/usr/include/x86_64-linux-gnu")
-        // .clang_arg("-I/usr/lib/gcc/x86_64-linux-gnu/11/include")
-        // .clang_arg("-D__STDC_WANT_LIB_EXT2__=1")
-        // .clang_arg("-D__STDC_LIMIT_MACROS")
-        // .clang_arg("-D__STDC_CONSTANT_MACROS")
-        // .clang_arg("-D_GNU_SOURCE")
-        
+        .blocklist_type("rep")
+        .blocklist_type("char_type")
+        .allowlist_type("_Tp")  // Add this to blocklist template types
+        .allowlist_type("_Pred")
+        .allowlist_type("_Type")
+        .allowlist_type("_ValueType")
         .generate()
         .expect("Unable to generate bindings");
 
@@ -67,25 +93,10 @@ fn main() {
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Couldn't write bindings!");
 
-    // Link the shared library
-    let lib_dir = if cfg!(feature = "max-freq") {
-        "src/lib/direct/k8"
-    } else {
-        "src/lib/throttled/k8"
-    };
-    println!("cargo:rustc-link-search=native={}", lib_dir);
-
-    // Specify library paths and link libraries from vcpkg
-    for lib_path in pthread.link_paths.iter().chain(abseil.link_paths.iter()).chain(flatbuffers.link_paths.iter()) {
-        println!("cargo:rustc-link-search=native={}", lib_path.display());
-    }
-    
-    // Link against required libraries
     println!("cargo:rustc-link-lib=c++");
     println!("cargo:rustc-link-lib=dylib=absl_base");
     println!("cargo:rustc-link-lib=dylib=absl_synchronization");
     println!("cargo:rustc-link-lib=dylib=flatbuffers");
     println!("cargo:rustc-link-lib=dylib=pthread");
-    println!("cargo:rustc-link-lib=dylib=yourlibname");
+    println!("cargo:rustc-link-lib=dylib=edgetpu");
 }
-

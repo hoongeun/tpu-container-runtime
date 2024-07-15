@@ -5,9 +5,7 @@ edition = "2021"
 build = "build.rs"
 
 [dependencies]
-# cc = "1.1.2"
-# libc = "0.2.155"
-# libc = { version = "0.2.155", features = ["std"] }
+cpp = "0.5.9"
 
 [build-dependencies]
 bindgen = "0.69.4"
