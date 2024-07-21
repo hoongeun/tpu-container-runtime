@@ -1,15 +1,19 @@
 [package]
-name = "edgetpu-driver"
+name = "libedgetpu"
 version = "0.1.0"
 edition = "2021"
-build = "build.rs"
+build = "build/build.rs"
 
 [dependencies]
 cpp = "0.5.9"
+thiserror = "1.0.63"
 
 [build-dependencies]
-bindgen = "0.69.4"
-vcpkg = "0.2.15"
+cpp_build = "0.5.9"
+flatbuffers = "24.3.25"
 
 [features]
 max-freq = []
+
+[dev-dependencies]
+image = "0.25.1"
